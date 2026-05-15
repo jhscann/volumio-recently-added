@@ -1,0 +1,61 @@
+{
+  "page": {
+    "label": "Recently Added Configuration"
+  },
+  "sections": [
+    {
+      "id": "settings",
+      "element": "section",
+      "label": "Library scan settings",
+      "icon": "fa-clock-o",
+      "onSave": {
+        "type": "controller",
+        "endpoint": "music_service/recentlyadded",
+        "method": "saveSettings"
+      },
+      "saveButton": {
+        "label": "Save and rescan",
+        "data": [
+          "roots",
+          "maxAlbums",
+          "maxDepth",
+          "excludeFolders"
+        ]
+      },
+      "content": [
+        {
+          "id": "roots",
+          "element": "input",
+          "label": "Music folder paths",
+          "description": "Comma-separated full Volumio filesystem paths to scan. Example: /mnt/NAS/Music,/mnt/USB/Music,/mnt/INTERNAL",
+          "doc": "",
+          "value": "/mnt/NAS/Music,/mnt/USB/Music,/mnt/INTERNAL"
+        },
+        {
+          "id": "maxAlbums",
+          "element": "input",
+          "label": "Maximum albums shown",
+          "description": "Maximum number of albums to show in Recently Added Albums. Values above 1000 are capped.",
+          "doc": "",
+          "value": "100"
+        },
+        {
+          "id": "maxDepth",
+          "element": "input",
+          "label": "Maximum folder depth",
+          "description": "How many folder levels below each music root to scan for album folders. 1 supports Root/Album/Tracks, 2 supports Root/Artist/Album/Tracks, 3 supports Root/Genre/Artist/Album/Tracks. Values above 5 are capped.",
+          "doc": "",
+          "value": "3"
+        },
+        {
+          "id": "excludeFolders",
+          "element": "input",
+          "label": "Excluded folder names",
+          "description": "Comma-separated folder names to skip while scanning, for example #recycle,@eaDir,.AppleDouble,video,Sounds.",
+          "doc": "",
+          "value": "#recycle,@eaDir,.AppleDouble,video,Sounds"
+        }
+      ]
+    }
+  ]
+}
