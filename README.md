@@ -34,17 +34,44 @@ The plugin still uses the standard Volumio plugin patterns for `kew`, `v-conf`, 
 
 ## Installation
 
-Manual testing should be done on a Volumio 4 / Bookworm device.
+SSH into your Volumio 4 device:
 
 ```bash
+ssh volumio@volumio4.local
+```
+
+The default password is often:
+
+```text
+volumio
+```
+
+Then install the plugin from GitHub:
+
+```bash
+cd /home/volumio
+git clone https://github.com/jhscann/volumio-recently-added.git recentlyadded
 cd /home/volumio/recentlyadded
 npm install --production --no-audit --no-fund
 volumio plugin install
 ```
 
-After installation, enable the plugin in Volumio if needed, then open the plugin settings and configure your music folder paths.
+Restart Volumio:
 
-For Volumio plugin submission, test from a Bookworm device and use:
+```bash
+volumio vrestart
+```
+
+Open `http://volumio4.local`, go to **Plugins**, enable **Recently Added**, then open its settings and configure your music folder paths.
+
+If `git` is missing on the Volumio box:
+
+```bash
+sudo apt update
+sudo apt install git
+```
+
+For Volumio plugin submission, test from a Bookworm device and use this from the plugin folder:
 
 ```bash
 volumio plugin submit
