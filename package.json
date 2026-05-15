@@ -1,0 +1,43 @@
+{
+  "name": "recentlyadded",
+  "version": "0.1.0",
+  "description": "Recently Added browse source for Volumio local and NAS music libraries",
+  "main": "index.js",
+  "scripts": {
+    "test": "node scanner-test.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jhscann/volumio-recently-added.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jhscann/volumio-recently-added/issues"
+  },
+  "homepage": "https://github.com/jhscann/volumio-recently-added#readme",
+  "volumio_info": {
+    "prettyName": "Recently Added",
+    "icon": "fa-history",
+    "plugin_type": "music_service",
+    "architectures": [
+      "amd64",
+      "armhf"
+    ],
+    "os": [
+      "bookworm"
+    ],
+    "has_alsa_contribution": false,
+    "details": "Shows recently added albums from configured local/NAS music folders.",
+    "changelog": "Initial public Bookworm-compatible release.",
+    "has_configuration": true
+  },
+  "engines": {
+    "node": ">=20",
+    "volumio": ">=4"
+  },
+  "dependencies": {
+    "kew": "*",
+    "v-conf": "*"
+  }
+}
