@@ -1,0 +1,18 @@
+{
+  "roots": {
+    "type": "string",
+    "value": "/mnt/NAS/Music,/mnt/USB/Music,/mnt/INTERNAL"
+  },
+  "maxAlbums": {
+    "type": "number",
+    "value": 100
+  },
+  "maxDepth": {
+    "type": "number",
+    "value": 3
+  },
+  "excludeFolders": {
+    "type": "string",
+    "value": "#recycle,@eaDir,.AppleDouble,video,Sounds"
+  }
+}
