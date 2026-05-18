@@ -24,7 +24,7 @@ var DEFAULT_ROOTS = '/mnt/NAS/Music,/mnt/USB/Music,/mnt/INTERNAL';
 var DEFAULT_MAX_ALBUMS = 100;
 var DEFAULT_MAX_DEPTH = 3;
 var DEFAULT_EXCLUDE_FOLDERS = '#recycle,@eaDir,.AppleDouble,video,Sounds';
-var DEFAULT_ENABLE_ALBUM_PLAYBACK = false;
+var DEFAULT_ENABLE_ALBUM_PLAYBACK = true;
 var URI_VERSION = 'v1';
 var URI_ALBUM_PREFIX = 'recentlyadded/' + URI_VERSION + '/album/';
 
@@ -157,6 +157,7 @@ ControllerRecentlyAdded.prototype.listAlbums = function (sortMode) {
   var sortedAlbums = this.getSortedRecentAlbumSubset(sortMode, maxAlbums);
   var listTitle = getAlbumListTitle(sortMode);
   var listIcon = sortMode === 'artist' ? 'fa fa-user' : (sortMode === 'title' ? 'fa fa-list' : 'fa fa-clock-o');
+  var albumPlaybackEnabled = this.getConfiguredEnableAlbumPlayback();
   var items = sortedAlbums.map(this.albumToBrowseItem.bind(this));
   return libQ.resolve({
     navigation: {
@@ -165,10 +166,10 @@ ControllerRecentlyAdded.prototype.listAlbums = function (sortMode) {
         title: listTitle,
         icon: listIcon,
         availableListViews: ['list', 'grid'],
-        playable: this.getConfiguredEnableAlbumPlayback(),
-        addToQueue: this.getConfiguredEnableAlbumPlayback(),
-        disablePlay: !this.getConfiguredEnableAlbumPlayback(),
-        disableAddToQueue: !this.getConfiguredEnableAlbumPlayback(),
+        playable: albumPlaybackEnabled,
+        addToQueue: albumPlaybackEnabled,
+        disablePlay: !albumPlaybackEnabled,
+        disableAddToQueue: !albumPlaybackEnabled,
         items: items
       }]
     }
@@ -219,7 +220,7 @@ ControllerRecentlyAdded.prototype.albumToBrowseItem = function (album) {
     title: title,
     artist: subtitle,
     album: album.album,
-    icon: 'fa fa-folder-open-o',
+    icon: 'fa fa-play-circle-o',
     albumart: this.buildAlbumArtUri(album),
     uri: URI_ALBUM_PREFIX + encodeURIComponent(album.id)
   };
@@ -476,8 +477,11 @@ ControllerRecentlyAdded.prototype.buildAlbumArtUri = function (album) {
   if (!album || !album.folderPath) return buildSourceIconUri();
   var artPath = this.findAlbumArtPath(album);
   var cacheId = album.folderModifiedAt || album.sortDate || album.id || album.folder;
+  var mpdPath = absolutePathToMpdRelativeUri(artPath || album.folderPath);
   return '/albumart?cacheid=' + encodeURIComponent(String(cacheId || 'recentlyadded')) +
-    '&path=' + encodeURIComponent(artPath || album.folderPath) +
+    '&path=' + encodeURIComponent(mpdPath) +
+    '&artist=' + encodeURIComponent(album.artist || '') +
+    '&album=' + encodeURIComponent(album.album || '') +
     '&icon=fa-tags&metadata=true';
 };
 
@@ -523,14 +527,18 @@ function markBrowseOnly(item) {
 }
 
 function markPlayableFolder(item) {
-  item.type = 'folder';
+  item.type = 'song';
   item.folder = true;
   item.isFolder = true;
+  item.navigation = true;
   item.playable = true;
   item.isPlayable = true;
   item.is_playable = true;
   item.addable = true;
   item.addToQueue = true;
+  item.addToPlaylist = true;
+  item.clearAndPlay = true;
+  item.playAndClear = true;
   item.disablePlay = false;
   item.disableAddToQueue = false;
   item.disableClearAndPlay = false;
@@ -754,7 +762,7 @@ ControllerRecentlyAdded.prototype.getUIConfig = function () {
         setUIConfigValue(uiconf, 'excludeFolders', self.getConfiguredExcludeFolders().join(','));
         setUIConfigValue(uiconf, 'enableAlbumPlayback', self.getConfiguredEnableAlbumPlayback());
       } catch (e) {
-        self.logger.warn('[recentlyadded] Could not populate settings UI: ' + e.message);
+        self.logger.warn('[recentlyaded] Could not populate settings UI: ' + e.message);
       }
       defer.resolve(uiconf);
     }).fail(function () {

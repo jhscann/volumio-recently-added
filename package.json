@@ -1,6 +1,6 @@
 {
   "name": "recentlyadded",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Recently Added browse source for Volumio local and NAS music libraries",
   "main": "index.js",
   "scripts": {
@@ -29,7 +29,7 @@
     ],
     "has_alsa_contribution": false,
     "details": "Shows recently added albums from configured local/NAS music folders.",
-    "changelog": "Add best-effort album artwork lookup and optional album-level playback.",
+    "changelog": "Improve album artwork lookup and make album rows playable by default.",
     "has_configuration": true
   },
   "engines": {

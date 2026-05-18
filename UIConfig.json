@@ -60,9 +60,9 @@
           "id": "enableAlbumPlayback",
           "element": "switch",
           "label": "Enable album-level playback",
-          "description": "Experimental. Shows play and add controls on album rows and queues the album's sorted track list. Leave off if Now Playing metadata or artwork does not update reliably on your setup.",
+          "description": "Shows play and add controls on album rows and queues the album's sorted track list. Turn off if Now Playing metadata or artwork does not update reliably on your setup.",
           "doc": "",
-          "value": false
+          "value": true
         }
       ]
     }
