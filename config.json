@@ -14,5 +14,9 @@
   "excludeFolders": {
     "type": "string",
     "value": "#recycle,@eaDir,.AppleDouble,video,Sounds"
+  },
+  "enableAlbumPlayback": {
+    "type": "boolean",
+    "value": false
   }
 }

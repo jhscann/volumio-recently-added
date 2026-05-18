@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+- Added best-effort album artwork lookup for album and track rows using common cover image files first, then the first audio file for embedded artwork fallback.
+- Added an experimental **Enable album-level playback** setting. It is off by default so the original track-level playback behaviour is preserved.
+- Documented artwork and album-level playback limitations for Volumio 4 users.
+
 ## 0.1.0
 
 - Prepared initial public Volumio 4 / Bookworm source tree.

@@ -18,11 +18,13 @@ function ControllerRecentlyAdded(context) {
 }
 
 var AUDIO_RE = /\.(flac|mp3|m4a|wav|aiff|aif|dsf|dff|ogg)$/i;
+var COVER_ART_RE = /^(cover|folder|front|album|artwork)\.(jpg|jpeg|png|webp)$/i;
 var SKIP_RE = /(^\.|#recycle|\.download$|@eaDir)/i;
 var DEFAULT_ROOTS = '/mnt/NAS/Music,/mnt/USB/Music,/mnt/INTERNAL';
 var DEFAULT_MAX_ALBUMS = 100;
 var DEFAULT_MAX_DEPTH = 3;
 var DEFAULT_EXCLUDE_FOLDERS = '#recycle,@eaDir,.AppleDouble,video,Sounds';
+var DEFAULT_ENABLE_ALBUM_PLAYBACK = false;
 var URI_VERSION = 'v1';
 var URI_ALBUM_PREFIX = 'recentlyadded/' + URI_VERSION + '/album/';
 
@@ -89,11 +91,18 @@ ControllerRecentlyAdded.prototype.search = function (query) {
 };
 
 ControllerRecentlyAdded.prototype.explodeUri = function (uri) {
-  // Playback is intentionally restricted to track rows. Navigation and album rows are
-  // returned as item-no-menu browse rows so Volumio should not expose play/add
-  // controls for them. This defensive explodeUri guard remains in case an old
-  // cached URI or UI action still tries to play a browse-only row.
-  if (isBrowseOnlyRecentlyAddedUri(uri)) {
+  // Album-level playback is opt-in. The default remains track-level only because
+  // that has been the most reliable route for Now Playing metadata and artwork.
+  if (isRecentlyAddedAlbumUri(uri)) {
+    if (!this.getConfiguredEnableAlbumPlayback()) {
+      this.logger.info('[recentlyadded] Album playback is disabled for URI: ' + uri);
+      return libQ.resolve([]);
+    }
+    var album = this.findAlbumByUri(uri);
+    if (!album) return libQ.resolve([]);
+    return libQ.resolve(this.trackItemsForAlbum(album));
+  }
+  if (isTopLevelRecentlyAddedUri(uri)) {
     this.logger.info('[recentlyadded] Non-track playback is disabled for browse-only URI: ' + uri);
     return libQ.resolve([]);
   }
@@ -156,10 +165,10 @@ ControllerRecentlyAdded.prototype.listAlbums = function (sortMode) {
         title: listTitle,
         icon: listIcon,
         availableListViews: ['list', 'grid'],
-        playable: false,
-        addToQueue: false,
-        disablePlay: true,
-        disableAddToQueue: true,
+        playable: this.getConfiguredEnableAlbumPlayback(),
+        addToQueue: this.getConfiguredEnableAlbumPlayback(),
+        disablePlay: !this.getConfiguredEnableAlbumPlayback(),
+        disableAddToQueue: !this.getConfiguredEnableAlbumPlayback(),
         items: items
       }]
     }
@@ -204,15 +213,18 @@ ControllerRecentlyAdded.prototype.listAlbumTracks = function (curUri) {
 ControllerRecentlyAdded.prototype.albumToBrowseItem = function (album) {
   var title = (album.artist ? album.artist + ' — ' : '') + album.album;
   var subtitle = album.source + ' · ' + (album.sortDate || '').slice(0, 10);
-  return markBrowseOnly({
+  var item = {
     service: 'recentlyadded',
     type: 'folder',
     title: title,
     artist: subtitle,
     album: album.album,
     icon: 'fa fa-folder-open-o',
+    albumart: this.buildAlbumArtUri(album),
     uri: URI_ALBUM_PREFIX + encodeURIComponent(album.id)
-  });
+  };
+  if (this.getConfiguredEnableAlbumPlayback()) return markPlayableFolder(item);
+  return markBrowseOnly(item);
 };
 
 ControllerRecentlyAdded.prototype.trackItemsForAlbum = function (album) {
@@ -227,11 +239,12 @@ ControllerRecentlyAdded.prototype.trackItemsForAlbum = function (album) {
       artist: album.artist || '',
       album: album.album || '',
       icon: 'fa fa-music',
+      albumart: this.buildAlbumArtUri(album),
       uri: absolutePathToMpdRelativeUri(track.file),
       tracknumber: track.track < 9999 ? track.track : undefined,
       discnumber: track.disc < 9999 ? track.disc : undefined
     };
-  });
+  }, this);
 };
 
 ControllerRecentlyAdded.prototype.findAlbumByUri = function (uri) {
@@ -262,6 +275,10 @@ ControllerRecentlyAdded.prototype.getConfiguredExcludeFolders = function () {
   return raw.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
 };
 
+ControllerRecentlyAdded.prototype.getConfiguredEnableAlbumPlayback = function () {
+  return parseBoolean(this.config.get('enableAlbumPlayback'), DEFAULT_ENABLE_ALBUM_PLAYBACK);
+};
+
 ControllerRecentlyAdded.prototype.shouldSkipFolder = function (folderPath, excludeFolders) {
   var folderName = path.basename(folderPath);
   if (SKIP_RE.test(folderName)) return true;
@@ -276,6 +293,7 @@ ControllerRecentlyAdded.prototype.saveSettings = function (data) {
   var maxAlbumsValue = extractUIValue(data, 'maxAlbums');
   var maxDepthValue = extractUIValue(data, 'maxDepth');
   var excludeFoldersValue = extractUIValue(data, 'excludeFolders');
+  var enableAlbumPlaybackValue = extractUIValue(data, 'enableAlbumPlayback');
 
   if (rootsValue !== undefined) {
     var roots = String(rootsValue).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
@@ -303,6 +321,10 @@ ControllerRecentlyAdded.prototype.saveSettings = function (data) {
   if (excludeFoldersValue !== undefined) {
     var excludeFolders = String(excludeFoldersValue).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
     this.config.set('excludeFolders', excludeFolders.join(','));
+  }
+
+  if (enableAlbumPlaybackValue !== undefined) {
+    this.config.set('enableAlbumPlayback', parseBoolean(enableAlbumPlaybackValue, DEFAULT_ENABLE_ALBUM_PLAYBACK));
   }
 
   this.config.save();
@@ -428,6 +450,37 @@ ControllerRecentlyAdded.prototype.listAudioFiles = function (dir) {
   }
 };
 
+ControllerRecentlyAdded.prototype.findAlbumArtPath = function (album) {
+  if (!album || !album.folderPath) return '';
+  var folders = [album.folderPath].concat(Array.isArray(album.trackFolders) ? album.trackFolders : []);
+
+  for (var i = 0; i < folders.length; i++) {
+    try {
+      var entries = fs.readdirSync(folders[i], { withFileTypes: true });
+      for (var j = 0; j < entries.length; j++) {
+        if (entries[j].isFile() && COVER_ART_RE.test(entries[j].name)) {
+          return path.join(folders[i], entries[j].name);
+        }
+      }
+    } catch (e) {
+      // Ignore unreadable artwork folders; the scanner will still fall back.
+    }
+  }
+
+  var audioFiles = this.collectAudioFilesForAlbum(album);
+  if (audioFiles.length) return audioFiles[0];
+  return album.folderPath;
+};
+
+ControllerRecentlyAdded.prototype.buildAlbumArtUri = function (album) {
+  if (!album || !album.folderPath) return buildSourceIconUri();
+  var artPath = this.findAlbumArtPath(album);
+  var cacheId = album.folderModifiedAt || album.sortDate || album.id || album.folder;
+  return '/albumart?cacheid=' + encodeURIComponent(String(cacheId || 'recentlyadded')) +
+    '&path=' + encodeURIComponent(artPath || album.folderPath) +
+    '&icon=fa-tags&metadata=true';
+};
+
 ControllerRecentlyAdded.prototype.emptyNavigation = function (title, prev) {
   return {
     navigation: {
@@ -469,13 +522,35 @@ function markBrowseOnly(item) {
   return item;
 }
 
-function isBrowseOnlyRecentlyAddedUri(uri) {
+function markPlayableFolder(item) {
+  item.type = 'folder';
+  item.folder = true;
+  item.isFolder = true;
+  item.playable = true;
+  item.isPlayable = true;
+  item.is_playable = true;
+  item.addable = true;
+  item.addToQueue = true;
+  item.disablePlay = false;
+  item.disableAddToQueue = false;
+  item.disableClearAndPlay = false;
+  item.noPlayButton = false;
+  item.showPlayButton = true;
+  item.showAddToQueueButton = true;
+  return item;
+}
+
+function isTopLevelRecentlyAddedUri(uri) {
   uri = String(uri || '');
   return uri === 'recentlyadded' ||
     uri === 'recentlyadded/albums' ||
     uri === 'recentlyadded/albums/artist' ||
-    uri === 'recentlyadded/albums/title' ||
-    uri.indexOf(URI_ALBUM_PREFIX) === 0 ||
+    uri === 'recentlyadded/albums/title';
+}
+
+function isRecentlyAddedAlbumUri(uri) {
+  uri = String(uri || '');
+  return uri.indexOf(URI_ALBUM_PREFIX) === 0 ||
     uri.indexOf('recentlyadded/album/') === 0;
 }
 
@@ -491,6 +566,16 @@ function compareText(a, b) {
 
 function compareDateDesc(a, b) {
   return new Date(b || 0) - new Date(a || 0);
+}
+
+function parseBoolean(value, fallback) {
+  if (value === undefined || value === null || value === '') return !!fallback;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  var normalized = String(value).trim().toLowerCase();
+  if (normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on') return true;
+  if (normalized === 'false' || normalized === '0' || normalized === 'no' || normalized === 'off') return false;
+  return !!fallback;
 }
 
 function parseAlbumName(folderName) {
@@ -667,6 +752,7 @@ ControllerRecentlyAdded.prototype.getUIConfig = function () {
         setUIConfigValue(uiconf, 'maxAlbums', String(self.getConfiguredMaxAlbums()));
         setUIConfigValue(uiconf, 'maxDepth', String(self.getConfiguredMaxDepth()));
         setUIConfigValue(uiconf, 'excludeFolders', self.getConfiguredExcludeFolders().join(','));
+        setUIConfigValue(uiconf, 'enableAlbumPlayback', self.getConfiguredEnableAlbumPlayback());
       } catch (e) {
         self.logger.warn('[recentlyadded] Could not populate settings UI: ' + e.message);
       }

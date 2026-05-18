@@ -18,7 +18,9 @@ It scans the filesystem paths you configure directly. The "recently added" signa
   - `Root / Genre / Artist / Album / Tracks`
 - Detects album folders by finding folders that contain audio files directly.
 - Handles common multi-disc layouts such as `CD1`, `CD2`, `Disc 1`, and `Disc 2`.
-- Keeps playback at track level for reliable Now Playing metadata and artwork.
+- Keeps playback at track level by default for reliable Now Playing metadata and artwork.
+- Can optionally expose experimental album-level playback from album rows.
+- Uses Volumio's album-art service to show common cover image files and embedded artwork where available.
 - Uses `metaflac` for FLAC `DISCNUMBER`, `TRACKNUMBER`, and `TITLE` tags when available, with filename ordering as a fallback.
 
 ## Compatibility
@@ -87,6 +89,7 @@ Settings:
 - **Maximum albums shown**: maximum number of albums shown in each view. Values above 1000 are capped.
 - **Maximum folder depth**: how many folder levels below each configured root to scan. The default is 3 and values above 5 are capped.
 - **Excluded folder names**: comma-separated folder names skipped while scanning, for example `#recycle,@eaDir,.AppleDouble,video,Sounds`.
+- **Enable album-level playback**: optional and experimental. When enabled, album rows show play/add actions and ask Volumio to queue the album's sorted track list. Leave this off if Now Playing metadata or artwork does not update reliably on your setup.
 
 Press **Save and rescan** after changing settings.
 
@@ -100,7 +103,15 @@ Avoid setting a root such as `/`, `/mnt`, or another broad filesystem path. The 
 4. Open an album.
 5. Play an individual track.
 
-Album rows and view rows are browse-only. This is intentional: earlier album-level playback could queue tracks, but Now Playing metadata and artwork did not update reliably across track changes.
+Album rows and view rows are browse-only by default. This is intentional: earlier album-level playback could queue tracks, but Now Playing metadata and artwork did not update reliably across track changes.
+
+If you enable **Enable album-level playback**, album rows become playable. The plugin returns the same sorted track list used inside the album view, but this remains experimental because the plugin scans folders directly rather than reading album objects from Volumio's music library database.
+
+## Album Artwork
+
+The plugin asks Volumio's album-art service for artwork on album and track rows. It looks for common image names such as `cover.jpg`, `folder.jpg`, `front.jpg`, `album.jpg`, and `artwork.png` in the album folder or disc folders. If no cover image is found, it falls back to the first audio file so Volumio can try embedded artwork.
+
+Artwork support is best-effort. Libraries that rely only on embedded artwork, unusual cover filenames, or formats Volumio cannot extract may still show the default icon.
 
 ## Track Ordering
 
@@ -125,7 +136,7 @@ The plugin does not store a persistent album cache. It scans on startup and when
 
 Album browse URIs use short in-memory IDs for the current scan rather than Base64-encoded filesystem paths. Track rows still need MPD-compatible file URIs so Volumio can play the selected track.
 
-Configuration values necessarily contain the scan paths you enter. Do not share logs or configuration files publicly without reviewing them first.
+Configuration values necessarily contain the scan paths you enter. Album-art lookups also pass local file paths to Volumio's local `/albumart` endpoint so Volumio can resolve cover images. Do not share logs, screenshots of URLs, or configuration files publicly without reviewing them first.
 
 ## Troubleshooting
 
@@ -156,6 +167,12 @@ If no albums appear:
 - Confirm the maximum folder depth matches your library layout.
 - Check excluded folder names.
 - Remember that only folders containing audio files directly, or parent folders containing disc subfolders with audio files, are treated as albums.
+
+If album artwork does not appear:
+
+- Check whether the album folder contains a common cover image file such as `cover.jpg` or `folder.jpg`.
+- Check whether Volumio normally shows artwork for the same track in another browse view.
+- Remember that artwork lookup is best-effort because this plugin scans folders directly rather than using Volumio's library album records.
 
 ## Development
 
