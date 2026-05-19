@@ -19,8 +19,7 @@
           "roots",
           "maxAlbums",
           "maxDepth",
-          "excludeFolders",
-          "enableAlbumPlayback"
+          "excludeFolders"
         ]
       },
       "content": [
@@ -55,14 +54,6 @@
           "description": "Comma-separated folder names to skip while scanning, for example #recycle,@eaDir,.AppleDouble,video,Sounds.",
           "doc": "",
           "value": "#recycle,@eaDir,.AppleDouble,video,Sounds"
-        },
-        {
-          "id": "enableAlbumPlayback",
-          "element": "switch",
-          "label": "Enable album-level playback",
-          "description": "Shows play and add controls on album rows and queues the album's sorted track list. Turn off if Now Playing metadata or artwork does not update reliably on your setup.",
-          "doc": "",
-          "value": true
         }
       ]
     }

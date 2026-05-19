@@ -1,6 +1,6 @@
 {
   "name": "recentlyadded",
-  "version": "0.1.2",
+  "version": "0.1.0",
   "description": "Recently Added browse source for Volumio local and NAS music libraries",
   "main": "index.js",
   "scripts": {
@@ -29,7 +29,7 @@
     ],
     "has_alsa_contribution": false,
     "details": "Shows recently added albums from configured local/NAS music folders.",
-    "changelog": "Improve album artwork lookup and make album rows playable by default.",
+    "changelog": "Initial public Bookworm-compatible release.",
     "has_configuration": true
   },
   "engines": {
