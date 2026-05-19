@@ -18,6 +18,7 @@ function ControllerRecentlyAdded(context) {
 }
 
 var AUDIO_RE = /\.(flac|mp3|m4a|wav|aiff|aif|dsf|dff|ogg)$/i;
+var COVER_ART_RE = /^(cover|folder|front|album|artwork)\.(jpg|jpeg|png|webp)$/i;
 var SKIP_RE = /(^\.|#recycle|\.download$|@eaDir)/i;
 var DEFAULT_ROOTS = '/mnt/NAS/Music,/mnt/USB/Music,/mnt/INTERNAL';
 var DEFAULT_MAX_ALBUMS = 100;
@@ -25,6 +26,7 @@ var DEFAULT_MAX_DEPTH = 3;
 var DEFAULT_EXCLUDE_FOLDERS = '#recycle,@eaDir,.AppleDouble,video,Sounds';
 var URI_VERSION = 'v1';
 var URI_ALBUM_PREFIX = 'recentlyadded/' + URI_VERSION + '/album/';
+var URI_PLAY_ALBUM_PREFIX = 'recentlyadded/' + URI_VERSION + '/play-album/';
 
 ControllerRecentlyAdded.prototype.onVolumioStart = function () {
   var configFile = this.commandRouter.pluginManager.getConfigurationFile(this.context, 'config.json');
@@ -89,6 +91,12 @@ ControllerRecentlyAdded.prototype.search = function (query) {
 };
 
 ControllerRecentlyAdded.prototype.explodeUri = function (uri) {
+  if (String(uri || '').indexOf(URI_PLAY_ALBUM_PREFIX) === 0) {
+    var album = this.findAlbumByUri(uri);
+    if (!album) return libQ.resolve([]);
+    return libQ.resolve(this.trackItemsForAlbum(album));
+  }
+
   // Playback is intentionally restricted to track rows. Navigation and album rows are
   // returned as item-no-menu browse rows so Volumio should not expose play/add
   // controls for them. This defensive explodeUri guard remains in case an old
@@ -195,7 +203,7 @@ ControllerRecentlyAdded.prototype.listAlbumTracks = function (curUri) {
         title: (album.artist ? album.artist + ' — ' : '') + album.album,
         icon: 'fa fa-music',
         availableListViews: ['list'],
-        items: this.trackItemsForAlbum(album)
+        items: [this.playAlbumItem(album)].concat(this.trackItemsForAlbum(album))
       }]
     }
   });
@@ -211,8 +219,22 @@ ControllerRecentlyAdded.prototype.albumToBrowseItem = function (album) {
     artist: subtitle,
     album: album.album,
     icon: 'fa fa-folder-open-o',
+    albumart: this.buildAlbumArtUri(album),
     uri: URI_ALBUM_PREFIX + encodeURIComponent(album.id)
   });
+};
+
+ControllerRecentlyAdded.prototype.playAlbumItem = function (album) {
+  return {
+    service: 'recentlyadded',
+    type: 'song',
+    title: 'Play Album',
+    artist: album.artist || '',
+    album: album.album || '',
+    icon: 'fa fa-play-circle-o',
+    albumart: this.buildAlbumArtUri(album),
+    uri: URI_PLAY_ALBUM_PREFIX + encodeURIComponent(album.id)
+  };
 };
 
 ControllerRecentlyAdded.prototype.trackItemsForAlbum = function (album) {
@@ -227,6 +249,7 @@ ControllerRecentlyAdded.prototype.trackItemsForAlbum = function (album) {
       artist: album.artist || '',
       album: album.album || '',
       icon: 'fa fa-music',
+      albumart: this.buildAlbumArtUri(album),
       uri: absolutePathToMpdRelativeUri(track.file),
       tracknumber: track.track < 9999 ? track.track : undefined,
       discnumber: track.disc < 9999 ? track.disc : undefined
@@ -235,7 +258,8 @@ ControllerRecentlyAdded.prototype.trackItemsForAlbum = function (album) {
 };
 
 ControllerRecentlyAdded.prototype.findAlbumByUri = function (uri) {
-  var id = uri.indexOf(URI_ALBUM_PREFIX) === 0 ? uri.replace(URI_ALBUM_PREFIX, '') : uri.replace('recentlyadded/album/', '');
+  var id = uri.indexOf(URI_PLAY_ALBUM_PREFIX) === 0 ? uri.replace(URI_PLAY_ALBUM_PREFIX, '') :
+    (uri.indexOf(URI_ALBUM_PREFIX) === 0 ? uri.replace(URI_ALBUM_PREFIX, '') : uri.replace('recentlyadded/album/', ''));
   id = decodeURIComponent(id);
   return this.albums.find(function (a) { return a.id === id; });
 };
@@ -426,6 +450,40 @@ ControllerRecentlyAdded.prototype.listAudioFiles = function (dir) {
   } catch (e) {
     return [];
   }
+};
+
+ControllerRecentlyAdded.prototype.findAlbumArtPath = function (album) {
+  if (!album || !album.folderPath) return '';
+  var folders = [album.folderPath].concat(Array.isArray(album.trackFolders) ? album.trackFolders : []);
+
+  for (var i = 0; i < folders.length; i++) {
+    try {
+      var entries = fs.readdirSync(folders[i], { withFileTypes: true });
+      for (var j = 0; j < entries.length; j++) {
+        if (entries[j].isFile() && COVER_ART_RE.test(entries[j].name)) {
+          return path.join(folders[i], entries[j].name);
+        }
+      }
+    } catch (e) {
+      // Ignore unreadable artwork folders; the scanner will still fall back.
+    }
+  }
+
+  var audioFiles = this.collectAudioFilesForAlbum(album);
+  if (audioFiles.length) return audioFiles[0];
+  return album.folderPath;
+};
+
+ControllerRecentlyAdded.prototype.buildAlbumArtUri = function (album) {
+  if (!album || !album.folderPath) return buildSourceIconUri();
+  var artPath = this.findAlbumArtPath(album);
+  var cacheId = album.folderModifiedAt || album.sortDate || album.id || album.folder;
+  var mpdPath = absolutePathToMpdRelativeUri(artPath || album.folderPath);
+  return '/albumart?cacheid=' + encodeURIComponent(String(cacheId || 'recentlyadded')) +
+    '&path=' + encodeURIComponent(mpdPath) +
+    '&artist=' + encodeURIComponent(album.artist || '') +
+    '&album=' + encodeURIComponent(album.album || '') +
+    '&icon=fa-tags&metadata=true';
 };
 
 ControllerRecentlyAdded.prototype.emptyNavigation = function (title, prev) {

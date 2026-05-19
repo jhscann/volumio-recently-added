@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0-beta.1
+
+- Added best-effort album artwork lookup for album rows, track rows, and the in-album play row.
+- Kept album rows browse-only so clicking an album opens its track list.
+- Added a separate **Play Album** row inside each album view to test album playback without making album rows playable.
+
 ## 0.1.0
 
 - Prepared initial public Volumio 4 / Bookworm source tree.
